@@ -1,0 +1,590 @@
+	테이블 생성시에 주식별자의 설정 참조키의 설정을
+	컬럼레벨, 테이블레벨에서 할 수 있음
+	
+	
+	**컬럼레벨에서 주식별자 설정하기
+	create table dept(
+		dno number primary key,
+		dname varchar2(20),
+		dloc varchar2(30)
+	);
+	
+	**테이블레벨에서 주식별자 설정하기
+	create table dept(
+		dno number,
+		dname varchar2(20),
+		dloc varchar2(30),
+		primary key(dno)
+	);
+	
+	
+	**두 개이상의 속성이 합쳐져서 주식별자로 설정할 수 있음
+	=>컬럼레벨에 표현x 테이블레벨에서만 표현이 가능함
+	
+	create table dept(
+		dname varchar2(20),
+		dloc varchar2(30),
+		tel varchar2(30),
+		manager varchar2(20),
+		primary key(dname,dloc)
+	);
+	
+	insert into dept values('영업팀','인천','032-1111-1111','홍길동');
+	insert into dept values('영업팀','서울','02-1111-1111','이순신');
+	insert into dept values('개발팀','서울','02-2222-2222','김유신');
+	insert into dept values('영업팀','인천','032-1111-1112','유관순');
+	1행에 오류:
+	ORA-00001: 무결성 제약 조건(C##SIST.SYS_C008372)에 위배됩니다
+	
+	
+	**컬럼레벨에서 주식별자와 참조키 설정
+	create table emp(
+		eno number primary key,
+		ename varchar2(20),
+		salary number,
+		dno number references dept (dno)
+	);
+	
+	**테이블레벨에서 주식별자와 참조키설정
+	create table emp(
+		eno number,
+		ename varchar2(20),
+		salary number,
+		dno number,
+		primary key (eno),
+		foreign key (dno) references dept (dno)
+	);
+	
+	**참조키를 설정하는 컬럼은 반드시 부모테이블의 주식별자이어야 함
+	
+	위처럼 테이블을 생성하면, 두 테이블은 부모자식 관계가 됨(주종관계)
+	dept : 부모테이블(부모개체)
+	emp : 자식테이블(자식개체) ->dept를 참조하는 중
+	
+	drop table dept
+           *
+	1행에 오류:
+	ORA-02449: 외래 키에 의해 참조되는 고유/기본 키가 테이블에 있습니다
+	
+	1)부모자식의 관계가 설정이 되어있을 때 부모테이블을 함부로 삭제 불가
+	=> 자식테이블을 먼저 삭제하고, 부모테이블을 지움
+	2) 부모테이블인 dept에 레코드가 먼저 추가되어야 하고, dno를 갖고 emp에 추가 가능
+	insert into emp values(1000,'홍길동',500,100)
+	*
+	1행에 오류:
+	ORA-02291: 무결성 제약조건(C##SIST.SYS_C008379)이 위배되었습니다- 부모 키가 없습니다
+	
+	insert into dept values(10,'기획팀','서교동');
+	insert into dept values(20,'영업팀','서교동');
+	insert into dept values(30,'개발팀','판교');
+	
+	insert into emp values(1000,'홍길동',500,10);
+	insert into emp values(1001,'이순신',400,20);
+	insert into emp values(1002,'김유신',500,30);
+	insert into emp values(1003,'유관순',400,30);
+	 
+	 delete emp where eno =1003; 
+	 
+	 delete dept where dno = 30; 
+	 1행에 오류:
+	ORA-02292: 무결성 제약조건(C##SIST.SYS_C008379)이 위배되었습니다- 자식 레코드가
+	발견되었습니다
+	->자식테이블에서 참조중이어서 레코드삭제가 불가능함 
+	
+	부모테이블인 dept에서 30번부서를 꼭 삭제하고 싶다면=>자식테이블먼저 해결하기
+	1)30번 부서의 모든 사원삭제
+	2)30번 부서의 부서번호를 다른 부서번호로 변경
+	
+	emp테이블에서 30번부서번호를 모두 10으로 변경하기
+	update emp set dno = 10 where dno =30;
+	delete dept where dno =30;
+	삭제하려면 30번부서를 참조하고 있는 레코드가 emp에 없기 때문에 바로 삭제가 가능함
+	
+	보모를 지울 때 연쇄해서 자식을 삭제할 수 있음
+	->테이블생성시에 자식 테이블에 on delete cascade
+	
+	create table dept(
+		dno number,
+		dname varchar2(20),
+		dloc varchar2(30),
+		primary key(dno)
+	);
+	
+	create table emp(
+		eno number,
+		ename varchar2(20),
+		salary number,
+		dno number,
+		primary key (eno),
+		foreign key (dno) references dept (dno) on delete cascade
+	);
+	
+	SQL> select * from dept;
+
+	  DNO DNAME      DLOC
+	----- ---------- ----------
+	   10 기획팀     서교동
+	   20 영업팀     서교동
+	   30 개발팀     판교
+	
+	SQL> select * from emp;
+	
+	  ENO ENAME        SALARY   DNO
+	----- ---------- -------- -----
+	 1000 홍길동          500    10
+	 1001 이순신          400    20
+	 1002 김유신          500    30
+	 1003 유관순          400    30
+	 
+	 
+	 ->부모테이블의 30번부서를 삭제하기
+	 SQL> delete dept where dno =30;
+
+		1 행이 삭제되었습니다.
+		
+	SQL> select * from dept;
+	
+	  DNO DNAME      DLOC
+	----- ---------- ----------
+	   10 기획팀     서교동
+	   20 영업팀     서교동
+	
+	SQL> select * from emp;
+	
+	  ENO ENAME        SALARY   DNO
+	----- ---------- -------- -----
+	 1000 홍길동          500    10
+	 1001 이순신          400    20
+	 
+	 
+	 
+	 
+	 ---------------------------------------------------
+	 1)dcl
+	 2)ddl create, alter(테이블 구조 변경), drop
+	 3)dml
+	 
+	 
+	 
+	 <alter>
+	 이미있는 테이블에 컬럼을 추가, 삭제, 자료형이나 제약을 변경
+	 1) 새로운 컬럼 추가하기
+	 alter table 테이블 이름 add 추가할 컬럼이름 자료형
+	 ->이미 레코드가 많이 있는 상태에서 컬럼을 추가한 다면 그 컬럼의 값은 null임
+	 
+	 
+	 1)emp테이블에 전화번호를 위한 컬럼을 추가하기
+	 alter table emp add phone varchar2(20); 
+	 
+	 SQL> select * from emp;
+	
+	  ENO ENAME        SALARY   DNO PHONE
+	----- ---------- -------- ----- ---------------
+	 1000 홍길동          500    10
+	 1001 이순신          400    20
+	 
+	 2)컬럼삭제하기
+	 alter table 테이블이름 drop column 컬럼이름
+	 
+	 2)emp테이블에서 phone컬럼을 삭제하기
+	 alter table emp drop column phone;	 
+	  
+	 ENO ENAME        SALARY   DNO
+	----- ---------- -------- -----
+	 1000 홍길동          500    10
+	 1001 이순신          400    20
+		 
+			 
+	create table dept(
+		dno number,
+		dname varchar2(3),
+		dloc varchar2(5),
+		primary key(dno)
+	);
+	
+	create table emp(
+		eno number,
+		ename varchar2(20),
+		salary number,
+		dno number,
+		primary key (eno),
+		foreign key (dno) references dept (dno) on delete cascade
+	);	 
+			 
+	3)컬럼의 자료형이나 제약 변경	 
+	
+	insert into dept values(10,'기획팀','서울시 마파구 서교동');
+	1행에 오류:
+    ORA-12899: "C##SIST"."DEPT"."DNAME" 열에 대한 값이 너무 큼(실제: 9, 최대값: 3)
+	
+	=>
+	자료형에 대한 크기를 바꿈
+	alter table 테이블이름 modify 컬럼이름 새로운 자료형
+	
+	3)dept테이블의 dname을 varchar2(30)로 변경
+	alter table dept modify dname varchar2(30);
+	
+	3)dept테이블의 dloc를 varchar2(50)로 수정
+	alter table dept modify dloc varchar(50);
+	 
+	
+	
+	4)프라이머리 키 설정을 까먹음	
+			 
+	create table dept(
+		dno number,
+		dname varchar2(30),
+		dloc varchar2(50)		 
+	);
+	
+	insert into dept values(10,'영업팀','판교');
+	insert into dept values(10,'기획팀','판교');
+	
+	*의미있는 테이블의 pk설정하기
+	alter table 테이블명 modify 컬럼이름 자료형 not null
+	alter table 테이블명 add primary key (컬럼이름) 
+	 
+	 단 pk를 설정하려는 컬럼의 값이 중복 or null인 테이터가 있으면 처리 후
+	 
+	 alter table dept modify dno number not null;
+	 alter table dept add primary key (dno);
+	 =>
+	 1행에 오류:
+	 ORA-02437: (C##SIST.SYS_C008387)을 검증할 수 없습니다 - 잘못된 기본 키입니다
+	 =>
+	 update dept set dno = 20 where dname ='영업팀';
+	 
+	 -> pk로 설정하기 위해서는 컬럼의 값들을 중복되지 않도록 처리후 pk설정
+	 
+	 create table emp(
+	 	eno varchar2(20),
+	 	ename varchar2(20),
+	 	dno  number
+	);
+	
+	1)eno의 자료형을 number
+		alter table emp modify eno number;
+	2)salary컬럼 추가
+		alter table emp add salary number;
+	3)eno에 pk설정
+		alter table emp modify eno number not null;
+		alter table emp add primary key (eno);
+	4)dno에 fk설정
+		alter table emp add foreign key (dno) references dept(dno);
+	
+	
+	**정리
+	-새로운 컬럼을 추가
+		alter table 테이블이름 add 추가할 컬럼이름 자료형
+	-컬럼 자료형 변경
+		alter table 테이블이름 modify 컬럼이름 새로운 자료형
+	-컬럼 삭제
+		alter table테이블이름 drop column 컬럼이름
+	-pk추가
+		alter table테이블이름 add primary key(컬럼이름)
+	-fk추가
+		alter table 테이블이름 ad foreign key (컬럼이름) references 부모테이블(컬럼)
+	-테이블 삭제하기
+		drop table 테이블명
+	 	=>자식테이블이 있다면 자식 먼저 삭제후 부모 제거
+
+	 	
+	 	-------------------
+	DML 데이터 조작어
+	insert
+	update
+	delete
+	select
+	
+	insert문의 형식
+	insert into 테이블이름 values(값1, 값2)...
+	=>values의 값의 개수와 순서는 테이블의 구조와 동일해야함
+	
+	insert into 테이블이름 (컬럼1, 컬림2).. values(값1, 값2)
+	=>values의 값의 개수와 순서는 앞에서 나열한 컬럼의 순서와 동일해야함
+	-> 단 나열한 컬럼이외의 컬럼들은 null을 허용하거나, defalut값이 있어야 함
+	
+	
+	create table dept(	
+		dno number primary key,
+		dname varchar2(20) not null, 
+		dloc varchar2(30) default '서교동',
+		tel varchar2(30) null	
+	);
+	insert into dept values(10,'기획팀','판교',031-1111-1111);
+	insert into dept(dno,dname)values(20,'개발팀');
+	insert into dept(dno,dloc,tel)values(30,'판교','031-1111-2222');
+	1행에 오류:
+	ORA-01400: NULL을 ("C##SIST"."DEPT"."DNAME") 안에 삽입할 수 없습니다
+	->dname속성엔 not null이라고 되어있는데, 이걸 생략하고 레코드를 추가 불가
+	
+	**이미있는 테이블의 구조와 레코드를 복사하여 새로운 테이블을 만들 수가 있음
+	create table 테이블이름 as select ~~
+	create table dept100 as select * from dept;
+	
+	  DNO DNAME      DLOC
+	----- ---------- ----------
+	   10 개발1팀    서교동
+	   20 개발2팀    판교
+	   30 기획팀     서교동
+	   40 영업팀     판교
+	   
+	    이름    널?        유형
+ ------------- -------- ----------------------------
+ DNO                     NUMBER
+ DNAME                   VARCHAR2(50)
+ DLOC                    VARCHAR2(50)
+=>제약은 복사 불가
+->필요하다면 alter명령으로 추가하기
+
+
+**이미있는 테이블의 구조만 복사하여 새로운 테이블 생성하기
+create table 테이블이름 as select *from 테이블명 where 만족하지 않을 조건;
+create table dept100 as select * from dept where 1=2;
+
+**검색한 결과 insert하기
+insert into 테이블 select ~~
+
+문제1) dept의 모둔 레코드를 검색해서 dept100에 insert하기
+insert into dept100 select * from dept;
+
+
+
+
+-----------
+자료의 수정
+update 테이블이름 set 컬럼1= 값1
+
+연습) 5번고객의 주소를 대한민국부산으로 변경
+update customer set address ='대한민국 부산'where custid = 5;
+
+연습) 박세주고객의 주소를 김연아의 주소와 동일하게 서브쿼리
+select address
+from customer
+where name ='김연아';
+
+update customer set address = (select address
+from customer
+where name ='김연아') 
+where name ='박세리';
+
+
+------------
+자료의 삭제
+delete from 테이블이름
+
+연습) 고객번호가 5번인 고객을 삭제하기
+delete from customer
+where custid =5;	
+
+delete from customer
+where custid =1;	
+->1행에 오류:
+ORA-02292: 무결성 제약조건(C##MADANG.SYS_C008334)이 위배되었습니다- 자식
+레코드가 발견되었습니다
+
+=>1번 고객의 구매내역이 자식레코드에 존재하기 때문에 삭제가 가능함
+
+
+**drop delete
+drop:테이블 자체를 삭제하는 것 
+delete : 테이블은 그대로이고 레코드가 삭제되는 것
+
+DML
+insert update delete를 수행후엔
+commit rollback으로 명령어를 적용
+-commit : 승인함
+-rollback : 취소함
+
+
+insert into dept values (30,'영업팀','서교동','02-1111-1234');
+
+-----------
+DDL,DCL은 auto commit
+
+
+
+
+create table 극장(
+	극장번호 number,
+	극장이름 varchar2(20),
+	위치 varchar2(20),
+	primary key(극장번호)
+);
+
+create table 상영관(
+	극장번호 number,
+	상영관번호 number,
+	영화제목 varchar2(50),
+	가격 number,
+	좌석수 number,
+	primary key(극장번호, 상영관번호),
+	foreign key (극장번호) references 극장(극장번호)
+);
+
+create table customer( 
+	custid number,
+	name varchar2(20),
+	addr varchar2(20),
+	primary key(custid);
+);
+
+create table 고객(
+	고객번호 number,
+	이름 varchar2(20),
+	주소 varchar2(50),
+	primary key (고객번호)
+);
+
+create table 예약(
+	극장번호 number,
+	상영관번호 number,
+	고객번호 number,
+	좌석번호 number,
+	날짜 date,
+	primary key(극장번호,상영관번호,고객번호),
+	foreign key (극장번호, 상영관번호) references 상영관 (극장번호,상영관번호),
+	foreign key (고객번호) references 고객(고객번호)
+); 
+
+insert into 극장 values(1,'롯데','잠실');
+insert into 극장 values(2,'메가','강남');
+insert into 극장 values(3,'대한','잠실');
+
+insert into 상영관 values(1,1,'어려운영화',15000,48);
+insert into 상영관 values(3,1,'멋진영화',7500,120);
+insert into 상영관 values(3,2,'재밌는영화',8000,110);
+ 
+ 
+ insert into 고객 values(3,'홍길동','강남');
+ insert into 고객 values(4,'김철수','잠실');
+ insert into 고객 values(9,'박영희','강남');
+ 
+ insert into 예약 values(3,2,3,15,'2014-09-01');
+ insert into 예약 values(3,1,4,16,'2014-09-01');
+ insert into 예약 values(1,1,9,48,'2014-09-01');
+ 
+ 1.모든 극장이름의 이름과 위치
+	 select 극장이름, 위치
+	 from 극장;
+ 2.잠실에 있는 극장을 보이시오
+ 	 select * from 극장
+ 	 where 위치 = '잠실';
+ 3.잠실에 사는 고객의 이름을 오름차순
+ 	select 이름
+ 	from 고객
+ 	where 주소 like '%잠실%'
+ 	order by 이름;
+ 4. 가격이 8천원이하인 영화의 극장번호, 상영관번호, 영화제목
+ 	select 극장번호, 상영관번호, 영화제목
+ 	from 상영관
+ 	where 가격<=8000;
+ 5. 극장위치와 고객의 주소가=은 고객
+ 	예약 : 극장을 예약한 것이 아니라 그 극장세어 상영하는 양화를 예약
+ 	
+ 	예약의 부모는 상영관, 고객
+ 	
+ 	그래서 고객의 주소와 그 고객이 예약한 영화를 사영하는 극장의 주소가 동일한지
+ 	알기 위해서는 모든 레코드 다 사용
+ 	
+ 	select 이름
+ 	from 고객, 극장, 상영관, 예약
+ 	where 고객.고객번호 = 예약.고객번호 and
+ 	극장.극장번호 = 상영관.극장번호 and
+ 	상영관.상영관번호 = 예약.상영관번호 and
+ 	상영관.극장번호 = 예약. 극장번호 and
+ 	고객.주소 = 극장.위치;
+ 	
+ 	
+ 6.	극장의 수는 몇 개?
+	select count(*)
+	from 극장;
+ 7. 상영된느 영화의 평균 가격?
+ 	select avg(가격)	
+ 	from 상영관;
+ 8. 2014년 9월 1일에 영화를 관람한 고객의 수?
+  	select count(*) from 예약
+  	where 날짜 ='2014-09-01';
+  	
+  1. 대한극장에서 사영된 영화제목
+	  select 영화제목
+	  from 상영관, 극장
+	  where 상영관.극장번호 =  극장.극장번호 and
+	  극장이름 = '대한'; 
+  
+  2. 대한극장에서 영화를 본 고객의 이름
+	  
+	  select distinct 이름
+	  from 예약, 극장, 고객,상영관
+	  WHERE
+	  고객.고객번호 = 예약.고객번호 and
+ 	  극장.극장번호 = 상영관.극장번호 and
+ 	  상영관.상영관번호 = 예약.상영관번호 and
+ 	  상영관.극장번호 = 예약. 극장번호 and
+ 	  극장이름 ='대한';
+  
+  3. 대한극장의 전체 수입
+   1 - 극장 , 상영관 테이블 조인 대한극장에서 상영하는 영화 가격을 검색
+ 
+	  select 극장.극장번호, 상영관번호, 가격
+	  from 극장, 상영관
+	  where 극장.극장번호 = 상영관.극장번호 and
+	  극장이름  = '대한';
+  
+  
+	  극장번호 상영관번호     가격
+	-------- ---------- --------
+	       3          1    7,500
+	       3          2    8,000
+	      ->
+	      
+    2 - 대한극장에서 상영하는 영화별 가격
+	select 상영관.극장번호, 상영관.상영관번호, count(*)n
+	from 극장, 상영관, 예약
+	where 극장.극장번호 = 상영관.극장번호 and
+	상영관.극장번호 = 예약.극장번호 and
+	상영관. 상영관번호 = 예약.상영관번호 and
+	극장이름  ='대한'
+	group by 상영관.극장번호, 상영관.상영관번호;  
+  
+  
+  	select sum(가격 *n )
+  	from (select 극장.극장번호, 상영관번호, 가격
+	  from 극장, 상영관
+	  where 극장.극장번호 = 상영관.극장번호 and
+	  극장이름  = '대한')a,(select 상영관.극장번호, 상영관.상영관번호, count(*)n
+	from 극장, 상영관, 예약
+	where 극장.극장번호 = 상영관.극장번호 and
+	상영관.극장번호 = 예약.극장번호 and
+	상영관. 상영관번호 = 예약.상영관번호 and
+	극장이름  ='대한'
+	group by 상영관.극장번호, 상영관.상영관번호)b
+  	where a.극장번호 = b.극장번호 and
+  	a.상영관번호 = b.상영관번호;
+  	
+  	
+  	
+ 4. 극장별 상영관 수
+ 	select 극장이름,count(극장이름)
+	from 극장
+	group by 극장이름;
+ 5. 잠실에 있는 극장의 상영관
+ 	select distinct 상영관번호
+ 	from 극장, 상영관
+ 	where 극장.극장번호 = 상영관.극장번호 and
+ 	위치 = '잠실';
+ 
+ 6. 2014,09,01의 극장별 평균 관람 고객수
+ 	select 극장이름 count(좌석번호)
+ 	from 예약
+ 	where 날짜 ='2014-09-01'
+ 	group by(극장번호);
+ 
+ 7. 2014 09-01가장 많은 고객이 관람한 영화
+ 8. 각 테이블에 데이터를 삽입하는 insert문 실행
+ 9. 영화의 가격을 10%씩 인상하기
+ 	
+ 	------------
+ 	사용자한테 고객이름, 고객이름, 주소, 전화번호를 입력받아서 데이터베이스 테이블
+ 	customer에 레코드를 추가하는 웹문서 작설
+ 	
